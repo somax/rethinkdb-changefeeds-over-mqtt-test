@@ -17,9 +17,7 @@ let keepers = {}
 
 mqttClient.on('connect', function () {
     console.log('mqtt server connected!');
-    mqttClient.subscribe('test')
-    mqttClient.subscribe('watch')
-    mqttClient.subscribe('keep')
+    Object.keys(topicHandle).forEach(topic => mqttClient.subscribe(topic))
 })
 
 
@@ -35,7 +33,7 @@ mqttClient.on('error', error => console.log('got error >>>', error))
 
 const topicHandle = {
     // 提交查询
-    'watch': (payload) => {
+    'watch': function (payload) {
         let { table, topic } = JSON.parse(payload.toString());
         r.table(table).changes().run().then(cursor => {
             let keeper = keepers[topic] = createKeeper(
@@ -44,6 +42,8 @@ const topicHandle = {
                     cursor.close();
                     delete keepers[topic];
                 }, 10);
+            keeper.cursor = cursor;
+
             keeper.start();
             cursor.each(function (err, result) {
                 console.log('::::changed::::', result);
@@ -51,11 +51,20 @@ const topicHandle = {
             })
         })
     },
+    // 终止 watch
+    'stop-watching': function (payload) {
+        console.log('stop watching', payload.toString());
+        let keeper = keepers[payload]
+        if (keeper) {
+            keeper.cursor.close();
+            keeper.stop();
+            delete keepers[payload];
+        }
+    },
     // 保持推送
     'keep': function (payload) {
         console.log(Object.keys(keepers));
         if (keepers[payload]) {
-
             keepers[payload].touch();
         } else {
             mqttClient.publish(payload, '"error"')
