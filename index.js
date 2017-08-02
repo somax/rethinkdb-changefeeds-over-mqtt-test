@@ -7,6 +7,7 @@
  * - 客户端此时 发送 keep 请求将收到 error 信息
  * - 客户端发送 stop-watching 终止 watch
  */
+const vm = require('vm');
 const r = require('rethinkdbdash')();
 const mqttClient = require('mqtt').connect('mqtt://localhost');
 // const mqttClient = mqtt;
@@ -71,5 +72,19 @@ const topicHandle = {
             mqttClient.publish(payload, '"error"')
         }
     },
-    'test': (payload) => console.log('test: ', payload.toString())
+    'test': (payload) => console.log('test: ', payload.toString()),
+    // 在安全沙盒中执行reql代码
+    'reql': payload => {
+        let {topic, reql} = JSON.parse(payload);
+        console.log(payload);
+        vm.runInNewContext(reql+'.run().then(send)', {
+            r: r,
+            // console: console,
+            send: function (result) {
+                console.log('vm send >>>',result)
+                mqttClient.publish(topic, JSON.stringify(result));
+            }
+        })
+    }
 }
+

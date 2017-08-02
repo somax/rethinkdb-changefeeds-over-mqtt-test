@@ -12,6 +12,7 @@
         <button onclick="stopWatching()">Stop</button>
     </p>
     <pre id="logge"></pre>
+
     <script src="./mqtt.js"></script>
 
     <script>
@@ -77,7 +78,23 @@
             clearInterval(keepIntervalId);
             log(`stop watching ${table} on ${watchTopic}`)
         }
-    </script>
+</script>
+
+<button onclick="testReql()">Test ReQL</button>
+<script>
+    function testReql(){
+        let reqlTopic = 'test_reql_02938403';
+        mqttClient.subscribe(reqlTopic);
+        messageHandle[reqlTopic] = function (payload) {
+                let data = JSON.parse(payload)
+                console.log(data)
+            }
+        mqttClient.publish('reql',`{"topic": "${reqlTopic}","reql":"r.tableList()"}`)
+    }
+</script>
+
+
+
 </body>
 
 </html>
