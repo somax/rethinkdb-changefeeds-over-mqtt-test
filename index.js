@@ -7,35 +7,44 @@
  * - 客户端此时 发送 keep 请求将收到 error 信息
  */
 const r = require('rethinkdbdash')();
-const mqtt = require('mqtt');
-const mqttClient = mqtt.connect('mqtt://localhost');
+const mqttClient = require('mqtt').connect('mqtt://localhost');
+// const mqttClient = mqtt;
+// console.log(mqttClient);
 
 const { createKeeper } = require('./lib/keeper');
 let keepers = {}
 
 
 mqttClient.on('connect', function () {
+    console.log('mqtt server connected!');
     mqttClient.subscribe('test')
     mqttClient.subscribe('watch')
     mqttClient.subscribe('keep')
 })
 
-mqttClient.on('message', function (topic, message) {
+
+mqttClient.on('message', function (topic, message, packet) {
     console.log('got message...', topic, message.toString())
     topicHandle[topic](message)
 })
 
+mqttClient.on('error', error => console.log('got error >>>', error))
+// mqttClient.on('packetreceive', packet => console.log('packetreceive >>>',packet))
+
+
 
 const topicHandle = {
     // 提交查询
-    'watch': (message) => {
-        let { table, topic } = JSON.parse(message.toString());
+    'watch': (payload) => {
+        let { table, topic } = JSON.parse(payload.toString());
         r.table(table).changes().run().then(cursor => {
-            let tm = keepers[topic] = createKeeper(function () {
-                cursor.close();
-                delete keepers[topic];
-            }, 10);
-            tm.start();
+            let keeper = keepers[topic] = createKeeper(
+                function () {
+                    // 超时回调函数，清理后事
+                    cursor.close();
+                    delete keepers[topic];
+                }, 10);
+            keeper.start();
             cursor.each(function (err, result) {
                 console.log('::::changed::::', result);
                 mqttClient.publish(topic, JSON.stringify(result));
@@ -43,28 +52,30 @@ const topicHandle = {
         })
     },
     // 保持推送
-    'keep': function (topic) {
-        console.log( Object.keys(keepers));
-        if (keepers[topic]) {
-            
-          keepers[topic].touch();
+    'keep': function (payload) {
+        console.log(Object.keys(keepers));
+        if (keepers[payload]) {
+
+            keepers[payload].touch();
         } else {
-            mqttClient.publish(topic,'error')
+            mqttClient.publish(payload, '"error"')
         }
     },
-    'test': (message) => console.log('test: ', message.toString())
+    'test': (payload) => console.log('test: ', payload.toString())
 }
 
 
 
 //  watch test 表的数据
-setTimeout(function () { mqttClient.publish('watch', '{"topic":"aEdljf12","table":"test"}'); }, 2000)
+// console.log(mqttClient);
+// let watchTopic = mqttClient.options.clientId + '_watch'
+// setTimeout(function () { mqttClient.publish('watch', `{"topic":"${watchTopic}","table":"test"}`); }, 2000)
 
 
-// 保持连接
-let keepCount = 3;
-let keepIntervalId = setInterval(function () {
-    mqttClient.publish('keep', 'aEdljf12');
-    keepCount--;
-    keepCount || clearInterval(keepIntervalId);
-},5000)
+// // 保持连接
+// let keepCount = 3;
+// let keepIntervalId = setInterval(function () {
+//     mqttClient.publish('keep', watchTopic)
+//     keepCount--;
+//     keepCount || clearInterval(keepIntervalId);
+// },5000)

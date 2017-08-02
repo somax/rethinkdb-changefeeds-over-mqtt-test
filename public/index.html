@@ -1,0 +1,70 @@
+<html>
+
+<head>
+    <title>RethinkDB Changefeeds Over MQTT Test</title>
+</head>
+
+<body>
+
+    <h1>Watch RethinkDB Changefeeds Over MQTT</h1>
+    <p>Table: <input id="table" type="text" placeholder="TableName" value="test"> <button onclick="watch()">Watch</button></p>
+
+    <pre id="logge"></pre>
+    <script src="./mqtt.js"></script>
+
+    <script>
+        let $table = document.getElementById('table');
+        let $logge =document.getElementById('logge')
+
+        function log(msg){
+            $logge.append(`${(new Date().toLocaleString())} : ${msg}`)
+        }
+        var mqttClient = mqtt.connect('ws://localhost:1884')
+
+        console.log(mqttClient)
+        mqttClient.on('connect', pack => console.log(pack))
+
+        let messageHandle = {
+
+        }
+
+        mqttClient.on("message", function (topic, payload) {
+            // alert([topic, payload].join(": "))
+            //mqttClient.end()
+            log(`${topic} : ${payload}\n`)
+
+            messageHandle[topic](payload);
+        })
+
+        function watch(){
+            let table =$table.value;
+            let watchTopic = mqttClient.options.clientId + '_watch_' + table;
+
+            log(`Watching "${table}" on "${watchTopic}"\n`);
+
+            mqttClient.publish('watch', `{"topic":"${watchTopic}","table":"${table}"}`);
+
+            mqttClient.subscribe(watchTopic);
+
+            // 添加消息处理回调
+            messageHandle[watchTopic] = function(payload){
+                let data = JSON.parse(payload)
+                console.log(data);
+                if(data === 'error'){
+                    delete messageHandle[watchTopic]
+                    console.log(Object.keys(messageHandle))
+                    clearInterval(keepIntervalId);
+                    log(`stop watching ${table} on ${watchTopic}`)
+                }
+            }
+
+            // 保持连接
+            let keepIntervalId = setInterval(function () {
+                mqttClient.publish('keep', watchTopic);
+            }, 10000)
+        }
+
+    </script>
+</body>
+
+</html>
