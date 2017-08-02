@@ -80,16 +80,18 @@
         }
 </script>
 
+<textarea id="reql" type="text">r.tableList()</textarea>
 <button onclick="testReql()">Test ReQL</button>
 <script>
+    const $reql = document.getElementById('reql');
     function testReql(){
-        let reqlTopic = 'test_reql_02938403';
+        let reqlTopic = mqttClient.options.clientId + '_reql_' + Date.now();
         mqttClient.subscribe(reqlTopic);
         messageHandle[reqlTopic] = function (payload) {
                 let data = JSON.parse(payload)
                 console.log(data)
             }
-        mqttClient.publish('reql',`{"topic": "${reqlTopic}","reql":"r.tableList()"}`)
+        mqttClient.publish('reql',`{"topic": "${reqlTopic}","reql":"${$reql.value}"}`)
     }
 </script>
 

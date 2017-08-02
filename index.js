@@ -76,15 +76,27 @@ const topicHandle = {
     // 在安全沙盒中执行reql代码
     'reql': payload => {
         let {topic, reql} = JSON.parse(payload);
-        console.log(payload);
-        vm.runInNewContext(reql+'.run().then(send)', {
-            r: r,
-            // console: console,
-            send: function (result) {
-                console.log('vm send >>>',result)
-                mqttClient.publish(topic, JSON.stringify(result));
-            }
-        })
+        console.log(payload, reql);
+        if (!reql) {
+            return;
+        }
+        try {
+            vm.runInNewContext(reql + '.run().then(send)', {
+                r: r,
+                // console: console,
+                send: function (result) {
+                    console.log('vm send >>>', result)
+                    mqttClient.publish(topic, JSON.stringify(result));
+                }
+            })            
+        } catch (error) {
+            console.log('error:::',error)
+        }
+
     }
 }
 
+// 防止未知错误崩溃
+process.on('uncaughtException', function (err) {
+    console.error('Error caught in uncaughtException event:', err);
+});
