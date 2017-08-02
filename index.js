@@ -5,6 +5,7 @@
  * - 通过定时向 keep 发送之前生成的 随机topic 来保持订阅的有效性
  * - 服务端在指定时间后未收到 keep 请求则主动移除 changefeeds 订阅
  * - 客户端此时 发送 keep 请求将收到 error 信息
+ * - 客户端发送 stop-watching 终止 watch
  */
 const r = require('rethinkdbdash')();
 const mqttClient = require('mqtt').connect('mqtt://localhost');
@@ -72,19 +73,3 @@ const topicHandle = {
     },
     'test': (payload) => console.log('test: ', payload.toString())
 }
-
-
-
-//  watch test 表的数据
-// console.log(mqttClient);
-// let watchTopic = mqttClient.options.clientId + '_watch'
-// setTimeout(function () { mqttClient.publish('watch', `{"topic":"${watchTopic}","table":"test"}`); }, 2000)
-
-
-// // 保持连接
-// let keepCount = 3;
-// let keepIntervalId = setInterval(function () {
-//     mqttClient.publish('keep', watchTopic)
-//     keepCount--;
-//     keepCount || clearInterval(keepIntervalId);
-// },5000)

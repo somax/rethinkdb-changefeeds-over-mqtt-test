@@ -39,9 +39,15 @@
         })
 
         let table = $table.value;
-        let watchTopic = mqttClient.options.clientId + '_watch_' + table;
-        let keepIntervalId = null;
+        let watchTopic = '';
+        let keepIntervalId = 0;
         function watch() {
+            // 先停止之前的
+            if (keepIntervalId) {
+                stopWatching()
+            }
+
+            watchTopic = mqttClient.options.clientId + '_watch_' + Date.now();
 
             log(`Watching "${table}" on "${watchTopic}"`);
 
@@ -61,7 +67,7 @@
             // 保持连接
             keepIntervalId = setInterval(function () {
                 mqttClient.publish('keep', watchTopic);
-            }, 9000)
+            }, 5000)
         }
 
         function stopWatching() {
